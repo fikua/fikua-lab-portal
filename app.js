@@ -53,11 +53,11 @@ document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.add('active');
         document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
 
-        // Start/stop log polling based on tab visibility
+        // Start/stop log streaming based on tab visibility
         if (tab.dataset.tab === 'logs') {
-            startLogPolling();
+            startLogs();
         } else {
-            stopLogPolling();
+            stopLogs();
         }
     });
 });
@@ -292,8 +292,70 @@ form.addEventListener('submit', async (e) => {
 });
 
 // =============================================================================
-// Logs (Dozzle-style)
+// Logs (SSE with polling fallback)
 // =============================================================================
+
+let eventSource = null;
+
+function connectLogStream() {
+    stopLogPolling();
+    if (eventSource) return;
+    updateConnectionStatus('connecting');
+
+    eventSource = new EventSource('/admin/logs/stream');
+
+    eventSource.addEventListener('log', (event) => {
+        try {
+            const entry = JSON.parse(event.data);
+            appendLogEntries([entry]);
+        } catch (e) {
+            console.warn('Failed to parse log event:', e);
+        }
+    });
+
+    eventSource.onopen = () => {
+        updateConnectionStatus('connected');
+    };
+
+    eventSource.onerror = () => {
+        disconnectLogStream();
+        updateConnectionStatus('polling');
+        startLogPolling();
+    };
+}
+
+function disconnectLogStream() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+}
+
+function updateConnectionStatus(status) {
+    const dot = document.querySelector('.log-connection-dot');
+    const label = document.getElementById('log-connection');
+    if (!dot || !label) return;
+
+    const statusText = label.childNodes[label.childNodes.length - 1];
+    switch (status) {
+        case 'connected':
+            dot.style.background = 'var(--success)';
+            statusText.textContent = ' Live';
+            break;
+        case 'connecting':
+            dot.style.background = 'var(--warning, #f59e0b)';
+            statusText.textContent = ' Connecting...';
+            break;
+        case 'polling':
+            dot.style.background = 'var(--primary)';
+            statusText.textContent = ' Polling';
+            break;
+        case 'disconnected':
+            dot.style.background = 'var(--text-muted)';
+            statusText.textContent = ' Disconnected';
+            break;
+    }
+}
 
 async function fetchLogs() {
     try {
@@ -304,7 +366,6 @@ async function fetchLogs() {
             appendLogEntries(data);
         }
     } catch {
-        // Backend may not support /admin/logs yet — show demo logs
         if (logEntries.length === 0) {
             appendLogEntries(generateDemoLogs());
         }
@@ -313,39 +374,17 @@ async function fetchLogs() {
 
 function generateDemoLogs() {
     const now = new Date();
-    const sources = ['FikuaLab', 'IssuerRoutes', 'ProfileRepository', 'DatabaseManager', 'AdminRoutes'];
     const messages = [
-        { level: 'INFO', source: 'FikuaLab', msg: 'Starting Fikua Lab server on port 8090' },
-        { level: 'INFO', source: 'DatabaseManager', msg: 'PostgreSQL connection pool initialized (max: 10)' },
-        { level: 'INFO', source: 'DatabaseManager', msg: 'Running Flyway migrations...' },
-        { level: 'INFO', source: 'DatabaseManager', msg: 'Migrations complete — schema up to date' },
-        { level: 'INFO', source: 'ProfileRepository', msg: 'Loaded 4 presets: [Plain Pre-Auth Issuer, HAIP Issuer, Plain Verifier, HAIP Verifier]' },
-        { level: 'INFO', source: 'AdminRoutes', msg: 'Admin API registered: GET/POST /admin/profiles, GET /admin/presets, GET /admin/health' },
-        { level: 'INFO', source: 'IssuerRoutes', msg: 'Issuer endpoints registered: /.well-known/*, /oid4vci/v1/*' },
-        { level: 'INFO', source: 'FikuaLab', msg: 'Server started successfully — http://0.0.0.0:8090' },
-        { level: 'INFO', source: 'AdminRoutes', msg: 'GET /admin/health — 200 (3ms)' },
-        { level: 'INFO', source: 'AdminRoutes', msg: 'GET /admin/profiles — 200 (12ms)' },
-        { level: 'INFO', source: 'IssuerRoutes', msg: 'GET /.well-known/openid-credential-issuer — 200 (5ms)' },
-        { level: 'INFO', source: 'ProfileRepository', msg: 'Profile activated: HAIP Issuer (id=a1b2c3)' },
-        { level: 'WARN', source: 'IssuerRoutes', msg: 'Token request without DPoP header — sender constraining required by active profile' },
-        { level: 'INFO', source: 'IssuerRoutes', msg: 'POST /oid4vci/v1/token — 200 (45ms)' },
-        { level: 'INFO', source: 'IssuerRoutes', msg: 'POST /oid4vci/v1/credential — 200 (128ms)' },
-        { level: 'ERROR', source: 'IssuerRoutes', msg: 'Invalid proof JWT: nonce mismatch (expected=abc123, got=xyz789)' },
-        { level: 'INFO', source: 'AdminRoutes', msg: 'GET /admin/profiles — 200 (8ms)' },
-        { level: 'INFO', source: 'IssuerRoutes', msg: 'Credential offer created: pre-authorized_code (offer_id=o4f5g6)' },
-        { level: 'WARN', source: 'DatabaseManager', msg: 'Connection pool usage at 80% (8/10 active)' },
-        { level: 'INFO', source: 'FikuaLab', msg: 'Health check: all endpoints UP' },
+        { level: 'INFO', source: 'FikuaLab', msg: 'Waiting for backend connection...' },
+        { level: 'WARN', source: 'Portal', msg: 'Could not connect to /admin/logs — showing demo data' },
+        { level: 'INFO', source: 'Portal', msg: 'Start the backend to see live logs here' },
     ];
-
-    return messages.map((m, i) => {
-        const t = new Date(now.getTime() - (messages.length - i) * 2300);
-        return {
-            timestamp: t.toISOString(),
-            level: m.level,
-            source: m.source,
-            message: m.msg
-        };
-    });
+    return messages.map((m, i) => ({
+        timestamp: new Date(now.getTime() - (messages.length - i) * 2300).toISOString(),
+        level: m.level,
+        source: m.source,
+        message: m.msg
+    }));
 }
 
 function appendLogEntries(entries) {
@@ -418,6 +457,20 @@ function stopLogPolling() {
     }
 }
 
+function startLogs() {
+    if (typeof EventSource !== 'undefined') {
+        connectLogStream();
+    } else {
+        startLogPolling();
+    }
+}
+
+function stopLogs() {
+    disconnectLogStream();
+    stopLogPolling();
+    updateConnectionStatus('disconnected');
+}
+
 // Log filter events
 document.querySelectorAll('input[name="log-level"]').forEach(input => {
     input.addEventListener('change', () => {
@@ -441,7 +494,6 @@ document.querySelectorAll('input[name="log-level"]').forEach(input => {
             } else {
                 visibleLevels.delete(input.value);
             }
-            // Update "All" checkbox
             const allChecked = visibleLevels.size === 3;
             const allCb = document.querySelector('input[name="log-level"][value="all"]');
             allCb.checked = allChecked;
@@ -462,8 +514,10 @@ document.getElementById('btn-clear-logs').addEventListener('click', () => {
 document.getElementById('btn-refresh-logs').addEventListener('click', () => {
     logEntries = [];
     logLineNumber = 0;
-    logContainer.innerHTML = '<div class="log-empty">Refreshing...</div>';
-    fetchLogs();
+    logContainer.innerHTML = '<div class="log-empty">Reconnecting...</div>';
+    disconnectLogStream();
+    stopLogPolling();
+    startLogs();
 });
 
 // =============================================================================
