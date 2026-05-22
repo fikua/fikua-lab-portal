@@ -1,14 +1,26 @@
 # Cloudflare Worker (Static Assets + handler) configuration.
 #
-# The Worker function in src/index.ts proxies API calls to
-# https://api.lab.fikua.com so the wallet/issuer/verifier flows reach the
-# Fikua Lab backend. Everything else is served from the repo root.
+# Serves the static UI under https://lab.fikua.com/portal/* and proxies
+# the role's API paths (.well-known/, oid4vci/, oauth/, oid4vp/, health,
+# admin/, …) to the lab backend at https://lab-backend.fikua.com via
+# Cloudflare Tunnel + Access Service Auth. See ADR 0008r1 (v4).
 
 name = "fikua-lab-portal"
 main = "src/index.ts"
 compatibility_date = "2026-05-22"
 
+routes = [
+    { pattern = "lab.fikua.com/portal/*", custom_domain = false, zone_name = "fikua.com" }
+]
+
 [assets]
 directory = "./"
 binding = "ASSETS"
 not_found_handling = "404-page"
+
+# Backend reach (see ADR 0008r1):
+#   LAB_BACKEND_ORIGIN     — plain var, the hostname Workers fetch().
+#   CF_ACCESS_CLIENT_ID    — secret (wrangler secret put).
+#   CF_ACCESS_CLIENT_SECRET — secret (wrangler secret put).
+[vars]
+LAB_BACKEND_ORIGIN = "https://lab-backend.fikua.com"
