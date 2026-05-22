@@ -17,7 +17,10 @@
     }
 })();
 
-const API = '/admin';
+// The portal is served at lab.fikua.com/portal/ so backend paths must
+// be prefixed with /portal/ to reach the role's Worker (which strips
+// the prefix before forwarding to the backend).
+const API = '/portal/admin';
 
 // State
 let profiles = [];
@@ -302,7 +305,7 @@ function connectLogStream() {
     if (eventSource) return;
     updateConnectionStatus('connecting');
 
-    eventSource = new EventSource('/admin/logs/stream');
+    eventSource = new EventSource('/portal/admin/logs/stream');
 
     eventSource.addEventListener('log', (event) => {
         try {
@@ -359,7 +362,7 @@ function updateConnectionStatus(status) {
 
 async function fetchLogs() {
     try {
-        const res = await fetch('/admin/logs');
+        const res = await fetch('/portal/admin/logs');
         if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         if (Array.isArray(data)) {
