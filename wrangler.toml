@@ -1,9 +1,14 @@
-# Cloudflare Workers (Static Assets) configuration
-# https://developers.cloudflare.com/workers/static-assets/
+# Cloudflare Worker (Static Assets + handler) configuration.
+#
+# The Worker function in src/index.ts proxies API calls to
+# https://api.lab.fikua.com so the wallet/issuer/verifier flows reach the
+# Fikua Lab backend. Everything else is served from the repo root.
 
 name = "fikua-lab-portal"
+main = "src/index.ts"
 compatibility_date = "2026-05-22"
 
 [assets]
 directory = "./"
+binding = "ASSETS"
 not_found_handling = "404-page"

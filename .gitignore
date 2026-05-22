@@ -17,3 +17,7 @@ Thumbs.db
 
 # Node (in case anyone runs wrangler dev locally)
 node_modules/
+
+# Worker code
+node_modules/
+*.tsbuildinfo
