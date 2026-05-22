@@ -18,7 +18,9 @@ export interface Env {
 const ROLE_PREFIX = '/portal';
 
 const BACKEND_PREFIXES = [
-    '/admin/ /health /reset',
+    '/admin/',
+    '/health',
+    '/reset',
 ];
 
 function matchesBackend(relativePath: string): boolean {
