@@ -1,0 +1,9 @@
+# Cloudflare Workers (Static Assets) configuration
+# https://developers.cloudflare.com/workers/static-assets/
+
+name = "fikua-lab-portal"
+compatibility_date = "2026-05-22"
+
+[assets]
+directory = "./"
+not_found_handling = "404-page"
