@@ -16,7 +16,7 @@ Traefik / Cloudflare Tunnel — see ADR 0008.
 ├── style.css
 ├── app.js
 ├── favicon.svg
-└── shared/         Vendored shared assets (consent banner, error pages)
+└── shared/         Vendored shared assets (error pages)
 ```
 
 Pure static — no build step.
